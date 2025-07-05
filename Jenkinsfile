@@ -37,7 +37,7 @@ pipeline {
             }
         }
 
-                // Stage 3: Run the R script container as a one-off task
+        // Stage 3: Run the R script container as a one-off task
         stage('Run ETL Task') {
             steps {
                 // Use withCredentials to securely access your secret files.
@@ -75,6 +75,7 @@ pipeline {
                 }
             }
         }
+    }
 
     // The 'post' section runs after the pipeline is complete
     post {
