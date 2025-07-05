@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 3. install CRAN packages needed by the script
-RUN R -e "install.packages(c('bigrquery', 'DBI', 'RPostgres', 'dplyr', 'dbplyr', 'config', 'glue', 'logger'), repos='https://cran.rstudio.com/')"
+RUN R -e "install.packages(c('pacman','bigrquery', 'DBI', 'RPostgres', 'dplyr', 'dbplyr', 'config', 'glue', 'logger'), repos='https://cran.rstudio.com/')"
 
 # 4. copy only code (not config.yml)
 WORKDIR /app
