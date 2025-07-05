@@ -37,28 +37,44 @@ pipeline {
             }
         }
 
-        // Stage 3: Run the R script container as a one-off task
+                // Stage 3: Run the R script container as a one-off task
         stage('Run ETL Task') {
             steps {
                 // Use withCredentials to securely access your secret files.
-                // This makes their paths available in environment variables.
                 withCredentials([
                     file(credentialsId: env.GCP_KEY_ID,    variable: 'GCP_KEY_PATH'),
                     file(credentialsId: env.CONFIG_YML_ID, variable: 'CONFIG_YML_PATH')
                 ]) {
-                    // This 'docker run' command is executed by the main agent.
-                    // It starts your R script container with the secrets mounted.
-                    sh '''
-                        docker run --rm \
-                          -v "${GCP_KEY_PATH}":/app/secrets/user.json:ro \
-                          -v "${CONFIG_YML_PATH}":/app/secrets/config.yml:ro \
-                          -e GOOGLE_APPLICATION_CREDENTIALS=/app/user.json \
-                          ch3w3y/bq2pg-weather:latest
-                    '''
+                    // Use a script block for more complex logic
+                    script {
+                        // Define the path for our temporary secrets directory within the agent's workspace
+                        def secretsDir = "${env.WORKSPACE}/temp_secrets"
+                        
+                        try {
+                            // 1. Create a clean, temporary directory on the agent
+                            sh "mkdir -p ${secretsDir}"
+                            
+                            // 2. Copy the secret files from their secure temp location into our new directory
+                            sh "cp '${GCP_KEY_PATH}' '${secretsDir}/user.json'"
+                            sh "cp '${CONFIG_YML_PATH}' '${secretsDir}/config.yml'"
+                            
+                            // 3. Run the container, mounting the ENTIRE directory.
+                            //    This is a much more reliable operation than mounting single files.
+                            sh """
+                                docker run --rm \\
+                                  -v "${secretsDir}":/app/secrets:ro \\
+                                  -e GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/user.json \\
+                                  ch3w3y/bq2pg-weather:latest
+                            """
+                        } finally {
+                            // 4. ALWAYS clean up the temporary secrets directory afterwards
+                            echo "Cleaning up temporary secrets directory..."
+                            sh "rm -rf ${secretsDir}"
+                        }
+                    }
                 }
             }
         }
-    } // End of stages
 
     // The 'post' section runs after the pipeline is complete
     post {
