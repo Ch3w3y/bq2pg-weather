@@ -50,8 +50,8 @@ pipeline {
                     // It starts your R script container with the secrets mounted.
                     sh '''
                         docker run --rm \
-                          -v "${GCP_KEY_PATH}":/app/user.json:ro \
-                          -v "${CONFIG_YML_PATH}":/app/config.yml:ro \
+                          -v "${GCP_KEY_PATH}":/app/secrets/user.json:ro \
+                          -v "${CONFIG_YML_PATH}":/app/secrets/config.yml:ro \
                           -e GOOGLE_APPLICATION_CREDENTIALS=/app/user.json \
                           ch3w3y/bq2pg-weather:latest
                     '''

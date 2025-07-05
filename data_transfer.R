@@ -1,7 +1,7 @@
 pacman::p_load(bigrquery, DBI, RPostgres, dplyr, config, glue, logger)
 Sys.setenv(R_CONFIG_ACTIVE = "weather")
 # read config
-cfg <- config::get()
+cfg <- config::get("/app/secrets/config.yml")
 
 # connect to Postgres
 pg <- dbConnect(
