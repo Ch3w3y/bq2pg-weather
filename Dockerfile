@@ -16,7 +16,7 @@ WORKDIR /app
 COPY data_transfer.R /app/
 
 # 5. tell the R session where to look for the GCP key
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/user.json
 
 # 6. default command: run your ETL script
 ENTRYPOINT ["Rscript","/app/data_transfer.R"]
