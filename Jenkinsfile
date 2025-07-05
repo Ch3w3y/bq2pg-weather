@@ -1,14 +1,16 @@
 pipeline {
+  // run this pipeline on any available agent
   agent any
 
+  // make our two secret-file credentials available
   environment {
-    // These two must be created in Jenkins Credentials as "Secret file"
-    GCP_KEY_ID    = 'gcp-key'          // your service-account.json
-    CONFIG_YML_ID = 'bq2pg-config-yml' // your real config.yml
+    GCP_KEY_ID    = 'gcp-key'
+    CONFIG_YML_ID = 'bq2pg-config-yml'
   }
 
+  // schedule: every hour on the hour
   triggers {
-    cron('0 * * * *')  // hourly at minute 0
+    cron('H * * * *')
   }
 
   stages {
@@ -18,53 +20,48 @@ pipeline {
       }
     }
 
-    stage('Build Docker image') {
+    // This stage *builds* your Docker image and tags it
+    stage('Build Image') {
       steps {
         script {
-          // tags: ch3w3y/bq2pg-weather:latest
-          docker.build("ch3w3y/bq2pg-weather:latest")
+          // requires Docker Pipeline plugin
+          docker.build(
+            'ch3w3y/bq2pg-weather:latest',
+            '-f Dockerfile .'
+          )
         }
       }
     }
 
-    stage('Inject secrets') {
+    // This stage runs your ETL inside that image
+    stage('Run ETL') {
+      // launch the container with the two secret files mounted
+      agent {
+        docker {
+          image 'ch3w3y/bq2pg-weather:latest'
+          args  '''
+            -v ${GCP_KEY_PATH}:/app/user.json:ro
+            -v ${CONFIG_YML_PATH}:/app/config.yml:ro
+            -e GOOGLE_APPLICATION_CREDENTIALS=/app/user.json
+          '''
+        }
+      }
       steps {
-        // bring your two secret files into the workspace
+        // expose the injected file paths
         withCredentials([
           file(credentialsId: env.GCP_KEY_ID,    variable: 'GCP_KEY_PATH'),
           file(credentialsId: env.CONFIG_YML_ID, variable: 'CONFIG_YML_PATH')
         ]) {
           sh '''
-            cp "$GCP_KEY_PATH"        ./service-account.json
-            cp "$CONFIG_YML_PATH"     ./config.yml
+            Rscript /app/data_transfer.R
           '''
-        }
-      }
-    }
-
-    stage('Run ETL in container') {
-      steps {
-        script {
-          // run the container, mounting the workspace into /app by default
-          docker.image("ch3w3y/bq2pg-weather:latest").inside(
-            // ensure the container sees the key and config
-            "-e GOOGLE_APPLICATION_CREDENTIALS=/app/user.json"
-          ) {
-            // our script reads config.yml from /app/config.yml
-            sh "Rscript /app/data_transfer.R"
-          }
         }
       }
     }
   }
 
   post {
-    success {
-      echo "ETL completed successfully"
-    }
-    failure {
-      echo "ETL FAILED – see Jenkins logs"
-      // optional: mail, Slack, etc.
-    }
+    success { echo '✅ ETL completed successfully' }
+    failure { echo '‼️ ETL failed – check the logs above' }
   }
 }
