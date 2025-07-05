@@ -1,77 +1,79 @@
 pipeline {
-  // run this pipeline on any available agent
-  agent {
+    // This is the main agent for the entire pipeline.
+    // It has the Docker CLI and access to the host's Docker daemon.
+    agent {
         docker {
             image 'cheweych3w3y/jenkins-agent-with-docker:latest'
-            // Mount the host's Docker socket into the container
-            // This allows the agent to run docker commands against the host's daemon
             args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
-  }
-
-  // make our two secret-file credentials available
-  environment {
-    GCP_KEY_ID    = 'gcp-key'
-    CONFIG_YML_ID = 'bq2pg-config-yml'
-  }
-
-  // schedule: every hour on the hour
-  triggers {
-    cron('H * * * *')
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
     }
 
-    // This stage *builds* your Docker image and tags it
-    stage('Build Image') {
-      steps {
-        script {
-          // requires Docker Pipeline plugin
-          docker.build(
-            'ch3w3y/bq2pg-weather:latest',
-            '-f Dockerfile .'
-          )
-        }
-      }
+    // Make your Jenkins credential IDs available as environment variables
+    environment {
+        GCP_KEY_ID    = 'gcp-key'
+        CONFIG_YML_ID = 'bq2pg-config-yml'
     }
 
-    // This stage runs your ETL inside that image
-    stage('Run ETL') {
-      // launch the container with the two secret files mounted
-      agent {
-        docker {
-          image 'ch3w3y/bq2pg-weather:latest'
-          args  '''
-            -v ${GCP_KEY_PATH}:/app/user.json:ro
-            -v ${CONFIG_YML_PATH}:/app/config.yml:ro
-            -e GOOGLE_APPLICATION_CREDENTIALS=/app/user.json
-          '''
-        }
-      }
-      steps {
-        // expose the injected file paths
-        withCredentials([
-          file(credentialsId: env.GCP_KEY_ID,    variable: 'GCP_KEY_PATH'),
-          file(credentialsId: env.CONFIG_YML_ID, variable: 'CONFIG_YML_PATH')
-        ]) {
-          sh '''
-            Rscript /app/data_transfer.R
-          '''
-        }
-      }
+    // Trigger the pipeline to run hourly
+    triggers {
+        cron('H * * * *')
     }
-  }
 
-  post {
-    success { echo '✅ ETL completed successfully' }
-    failure { echo '‼️ ETL failed – check the logs above' }
-  }
-  
-  
-  
-}
+    stages {
+        // Stage 1: Get the source code
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
+        // Stage 2: Build the Docker image for your R script
+        stage('Build R Script Image') {
+            steps {
+                script {
+                    // This command is run by the main agent
+                    sh 'docker build -t ch3w3y/bq2pg-weather:latest -f Dockerfile .'
+                }
+            }
+        }
+
+        // Stage 3: Run the R script container as a one-off task
+        stage('Run ETL Task') {
+            steps {
+                // Use withCredentials to securely access your secret files.
+                // This makes their paths available in environment variables.
+                withCredentials([
+                    file(credentialsId: env.GCP_KEY_ID,    variable: 'GCP_KEY_PATH'),
+                    file(credentialsId: env.CONFIG_YML_ID, variable: 'CONFIG_YML_PATH')
+                ]) {
+                    // This 'docker run' command is executed by the main agent.
+                    // It starts your R script container with the secrets mounted.
+                    sh '''
+                        docker run --rm \
+                          -v "${GCP_KEY_PATH}":/app/user.json:ro \
+                          -v "${CONFIG_YML_PATH}":/app/config.yml:ro \
+                          -e GOOGLE_APPLICATION_CREDENTIALS=/app/user.json \
+                          ch3w3y/bq2pg-weather:latest
+                    '''
+                }
+            }
+        }
+    } // End of stages
+
+    // The 'post' section runs after the pipeline is complete
+    post {
+        always {
+            // It's good practice to clean up the image you built to save disk space
+            echo 'Cleaning up Docker image...'
+            // Use -f to force removal even if a container is somehow left running
+            sh 'docker rmi -f ch3w3y/bq2pg-weather:latest || true'
+        }
+        success {
+            echo '✅ ETL completed successfully'
+        }
+        failure {
+            echo '‼️ ETL failed – check the logs above'
+        }
+    } // End of post
+
+} // End of pipeline
