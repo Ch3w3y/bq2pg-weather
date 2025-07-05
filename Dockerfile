@@ -1,23 +1,19 @@
-# 1. start from a minimal R image
+# Use the official r-base image
 FROM r-base:4.5.1
 
-# 2. install OS libs for SSL, curl, Postgres client
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl-dev \
-    libcurl4-openssl-dev \
-    libpq-dev \
+    libssl-dev libcurl4-openssl-dev libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 3. install CRAN packages needed by the script
-RUN R -e "install.packages(c('pacman','bigrquery', 'DBI', 'RPostgres', 'dplyr', 'dbplyr', 'config', 'glue', 'logger'), repos='https://cran.rstudio.com/')"
+# Install R packages
+RUN R -e "install.packages(c('bigrquery', 'DBI', 'RPostgres', 'dplyr', 'dbplyr', 'config', 'glue', 'logger'), repos='https://cran.rstudio.com/')"
 
-# 4. copy only code (not config.yml)
+# Set working directory
 WORKDIR /app
+
+# Copy the script
 COPY data_transfer.R /app/
 
-
-# 5. tell the R session where to look for the GCP key
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/user.json
-
-# 6. default command: run your ETL script
-ENTRYPOINT ["Rscript","/app/data_transfer.R"]
+# THIS IS THE FIX: Use CMD to set the default, overridable command
+CMD ["Rscript", "/app/data_transfer.R"]

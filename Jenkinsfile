@@ -38,7 +38,7 @@ pipeline {
         }
 
         // Stage 3: Run the R script container as a one-off task
-        stage('Run ETL Task') {
+               stage('Run ETL Task') {
             steps {
                 withCredentials([
                     file(credentialsId: env.GCP_KEY_ID,    variable: 'GCP_KEY_PATH'),
@@ -52,34 +52,18 @@ pipeline {
                             sh "cp '${GCP_KEY_PATH}' '${secretsDir}/user.json'"
                             sh "cp '${CONFIG_YML_PATH}' '${secretsDir}/config.yml'"
                             
-                            // --- DEBUGGING STEP ---
-                            // We will temporarily run 'ls -lR /app' instead of the R script.
-                            // This command recursively lists all files and directories under /app,
-                            // showing us exactly what the container sees.
-                            echo "DEBUG: Listing contents of the temporary secrets directory on the agent..."
-                            sh "ls -lR ${secretsDir}"
-
-                            echo "DEBUG: Listing contents of the /app directory inside the R container..."
-                            sh """
-                                docker run --rm \\
-                                  -v "${secretsDir}":/app/secrets:ro \\
-                                  ch3w3y/bq2pg-weather:latest \\
-                                  ls -lR /app
-                            """
-
-                            // --- REAL COMMAND (temporarily disabled while we debug) ---
-                            // Once we confirm the files are mounting correctly, we will re-enable this.
-                            /*
+                            // THIS IS THE FIX: Make the secret files readable by everyone.
+                            // 644 means: owner can read/write, group can read, others can read.
+                            sh "chmod 644 ${secretsDir}/*"
+                            
+                            // Now, run the container.
                             sh """
                                 docker run --rm \\
                                   -v "${secretsDir}":/app/secrets:ro \\
                                   -e GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/user.json \\
                                   ch3w3y/bq2pg-weather:latest
                             """
-                            */
-
                         } finally {
-                            echo "Cleaning up temporary secrets directory..."
                             sh "rm -rf ${secretsDir}"
                         }
                     }
@@ -87,6 +71,7 @@ pipeline {
             }
         }
     }
+    
 
     // The 'post' section runs after the pipeline is complete
     post {
