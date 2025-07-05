@@ -7,6 +7,7 @@ pipeline {
             // This allows the agent to run docker commands against the host's daemon
             args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
+  }
 
   // make our two secret-file credentials available
   environment {
