@@ -1,5 +1,5 @@
 # 1. start from a minimal R image
-FROM rocker/r-base:4.5.2
+FROM r-base:4.5.1
 
 # 2. install OS libs for SSL, curl, Postgres client
 RUN apt-get update && apt-get install -y --no-install-recommends \
