@@ -48,10 +48,10 @@ pipeline {
           // run the container, mounting the workspace into /app by default
           docker.image("ch3w3y/bq2pg-weather:latest").inside(
             // ensure the container sees the key and config
-            "-e GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json"
+            "-e GOOGLE_APPLICATION_CREDENTIALS=/app/user.json"
           ) {
             // our script reads config.yml from /app/config.yml
-            sh "Rscript /app/my_transfer_script.R"
+            sh "Rscript /app/data_transfer.R"
           }
         }
       }
