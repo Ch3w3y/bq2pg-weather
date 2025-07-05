@@ -4,7 +4,7 @@ pipeline {
     agent {
         docker {
             image 'cheweych3w3y/jenkins-agent-with-docker:latest'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
+            args '-v /var/run/docker.sock:/var/run/docker.sock --group-add 281'
         }
     }
 
