@@ -1,0 +1,13 @@
+default:
+  bq:
+    project: "my-gcp-project"
+    dataset: "weather_data"
+    table:   "observations"
+  db:
+    host:     "localhost"
+    port:     5432
+    name:     "weatherdb"
+    user:     "weather_user"
+    password: "supersecret"
+    schema:   "public"
+    table:    "observations"
