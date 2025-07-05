@@ -1,6 +1,12 @@
 pipeline {
   // run this pipeline on any available agent
-  agent any
+  agent {
+        docker {
+            image 'cheweych3w3y/jenkins-agent-with-docker:latest'
+            // Mount the host's Docker socket into the container
+            // This allows the agent to run docker commands against the host's daemon
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
 
   // make our two secret-file credentials available
   environment {
@@ -64,4 +70,7 @@ pipeline {
     success { echo '✅ ETL completed successfully' }
     failure { echo '‼️ ETL failed – check the logs above' }
   }
+  
+  
+  
 }
