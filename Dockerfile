@@ -19,4 +19,4 @@ COPY data_transfer.R /app/
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json
 
 # 6. default command: run your ETL script
-ENTRYPOINT ["Rscript","/app/my_transfer_script.R"]
+ENTRYPOINT ["Rscript","/app/data_transfer.R"]
