@@ -40,34 +40,45 @@ pipeline {
         // Stage 3: Run the R script container as a one-off task
         stage('Run ETL Task') {
             steps {
-                // Use withCredentials to securely access your secret files.
                 withCredentials([
                     file(credentialsId: env.GCP_KEY_ID,    variable: 'GCP_KEY_PATH'),
                     file(credentialsId: env.CONFIG_YML_ID, variable: 'CONFIG_YML_PATH')
                 ]) {
-                    // Use a script block for more complex logic
                     script {
-                        // Define the path for our temporary secrets directory within the agent's workspace
                         def secretsDir = "${env.WORKSPACE}/temp_secrets"
                         
                         try {
-                            // 1. Create a clean, temporary directory on the agent
                             sh "mkdir -p ${secretsDir}"
-                            
-                            // 2. Copy the secret files from their secure temp location into our new directory
                             sh "cp '${GCP_KEY_PATH}' '${secretsDir}/user.json'"
                             sh "cp '${CONFIG_YML_PATH}' '${secretsDir}/config.yml'"
                             
-                            // 3. Run the container, mounting the ENTIRE directory.
-                            //    This is a much more reliable operation than mounting single files.
+                            // --- DEBUGGING STEP ---
+                            // We will temporarily run 'ls -lR /app' instead of the R script.
+                            // This command recursively lists all files and directories under /app,
+                            // showing us exactly what the container sees.
+                            echo "DEBUG: Listing contents of the temporary secrets directory on the agent..."
+                            sh "ls -lR ${secretsDir}"
+
+                            echo "DEBUG: Listing contents of the /app directory inside the R container..."
+                            sh """
+                                docker run --rm \\
+                                  -v "${secretsDir}":/app/secrets:ro \\
+                                  ch3w3y/bq2pg-weather:latest \\
+                                  ls -lR /app
+                            """
+
+                            // --- REAL COMMAND (temporarily disabled while we debug) ---
+                            // Once we confirm the files are mounting correctly, we will re-enable this.
+                            /*
                             sh """
                                 docker run --rm \\
                                   -v "${secretsDir}":/app/secrets:ro \\
                                   -e GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/user.json \\
                                   ch3w3y/bq2pg-weather:latest
                             """
+                            */
+
                         } finally {
-                            // 4. ALWAYS clean up the temporary secrets directory afterwards
                             echo "Cleaning up temporary secrets directory..."
                             sh "rm -rf ${secretsDir}"
                         }
