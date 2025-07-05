@@ -14,7 +14,7 @@ RUN R -e "install.packages(c('pacman','bigrquery', 'DBI', 'RPostgres', 'dplyr', 
 # 4. copy only code (not config.yml)
 WORKDIR /app
 COPY data_transfer.R /app/
-COPY config.yml /app/
+
 
 # 5. tell the R session where to look for the GCP key
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/user.json
