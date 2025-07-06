@@ -44,7 +44,7 @@ pipeline {
                             sh "mkdir -p /app/secrets"
                             sh "cp '${GCP_KEY_PATH}' /app/secrets/user.json"
                             sh "cp '${CONFIG_YML_PATH}' /app/secrets/config.yml"
-                            sh "chmod 644 /app/secrets/*" // Add read permissions
+                            sh "chmod 644 /app/secrets/*"
                             
                             sh "Rscript /app/data_transfer.R"
                         }
@@ -56,10 +56,10 @@ pipeline {
 
     post {
         always {
-            // This is the verified, correct syntax for the post block.
-            // 1. Allocate a node.
-            // 2. Use docker.image.inside to get a Docker-capable environment.
-            node {
+            // THIS IS THE FINAL FIX: The 'node' step requires a label.
+            // Using node('') tells Jenkins to run this on any available executor.
+            node('') {
+                // Now that we have a node, we can get a Docker-capable environment.
                 docker.image('cheweych3w3y/jenkins-agent-with-docker:latest').inside('-v /var/run/docker.sock:/var/run/docker.sock --group-add 281') {
                     echo 'Cleaning up Docker image...'
                     sh 'docker rmi -f ch3w3y/bq2pg-weather:latest || true'
