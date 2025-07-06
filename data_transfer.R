@@ -23,7 +23,7 @@ last_ts <- res$last_ts
 
 
 # authenticate (via GOOGLE_APPLICATION_CREDENTIALS)
-bq_auth(path = "user.json")
+bq_auth(path = "app/secrets/user.json")
 
 bq_con <- dbConnect(
   bigquery(),
