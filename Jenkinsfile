@@ -1,5 +1,5 @@
 pipeline {
-    // We will define the agent for each stage, so we start with 'agent none'
+    // We will define the agent for each stage and for the post block.
     agent none
 
     environment {
@@ -12,7 +12,6 @@ pipeline {
     }
 
     stages {
-        // This stage builds the R script image. It needs a Docker-capable agent.
         stage('Build R Script Image') {
             agent {
                 docker {
@@ -28,7 +27,6 @@ pipeline {
             }
         }
 
-        // This stage runs the ETL task. It also needs a Docker-capable agent.
         stage('Run ETL Task') {
             agent {
                 docker {
@@ -37,18 +35,14 @@ pipeline {
                 }
             }
             steps {
-                // THIS IS THE CRITICAL SYNTAX FIX:
-                // The 'docker.image.inside' step must be wrapped in a 'script' block
-                // to be used inside a Declarative stage.
                 script {
-                    docker.image('ch3w3y/bq2pg-weather:latest').inside {
-                        // Now we are INSIDE the R script container.
+                    // THIS IS FIX #1: Add '--user root' to run the commands as the root user
+                    // inside the R container, which has permission to write to /app.
+                    docker.image('ch3w3y/bq2pg-weather:latest').inside('--user root') {
                         withCredentials([
                             file(credentialsId: env.GCP_KEY_ID,    variable: 'GCP_KEY_PATH'),
                             file(credentialsId: env.CONFIG_YML_ID, variable: 'CONFIG_YML_PATH')
                         ]) {
-                            // Copy the secrets from the agent's temp location
-                            // to a known location inside this R container.
                             sh "mkdir -p /app/secrets"
                             sh "cp '${GCP_KEY_PATH}' /app/secrets/user.json"
                             sh "cp '${CONFIG_YML_PATH}' /app/secrets/config.yml"
@@ -62,14 +56,20 @@ pipeline {
         }
     } // End of stages
 
-    // The 'post' block runs after all stages are complete.
-    // It will automatically run on the agent from the last stage.
     post {
         always {
-            // We don't need to define an agent here.
-            // This will run on the 'cheweych3w3y/jenkins-agent-with-docker' agent.
-            echo 'Cleaning up Docker image...'
-            sh 'docker rmi -f ch3w3y/bq2pg-weather:latest || true'
+            // THIS IS FIX #2: Provide an agent for the post-build actions.
+            // This ensures the 'docker rmi' command has a context to run in.
+            agent {
+                docker {
+                    image 'cheweych3w3y/jenkins-agent-with-docker:latest'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock --group-add 281'
+                }
+            }
+            steps {
+                echo 'Cleaning up Docker image...'
+                sh 'docker rmi -f ch3w3y/bq2pg-weather:latest || true'
+            }
         }
         success {
             echo '✅ ETL completed successfully'
